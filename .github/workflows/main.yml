@@ -1,11 +1,19 @@
 name: Build APK
 on: [push, workflow_dispatch]
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: unzip -q NasGallery.zip
+      - name: Abilita Android TV
+        run: |
+          M=NasGallery/app/src/main/AndroidManifest.xml
+          sed -i 's#<uses-permission#<uses-feature android:name="android.hardware.touchscreen" android:required="false" /><uses-feature android:name="android.software.leanback" android:required="false" /><uses-permission#' $M
+          sed -i 's#<category android:name="android.intent.category.LAUNCHER" />#<category android:name="android.intent.category.LAUNCHER" /><category android:name="android.intent.category.LEANBACK_LAUNCHER" />#' $M
+          sed -i 's#android:icon="@android:drawable/ic_menu_gallery"#android:icon="@android:drawable/ic_menu_gallery" android:banner="@android:drawable/ic_menu_gallery"#' $M
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 17 }
       - uses: gradle/actions/setup-gradle@v4
@@ -13,7 +21,9 @@ jobs:
       - run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
       - run: gradle assembleDebug
         working-directory: NasGallery
-      - uses: actions/upload-artifact@v4
+      - run: cp NasGallery/app/build/outputs/apk/debug/app-debug.apk FotoNAS.apk
+      - uses: softprops/action-gh-release@v2
         with:
-          name: FotoNAS-apk
-          path: NasGallery/app/build/outputs/apk/debug/app-debug.apk
+          tag_name: build-${{ github.run_number }}
+          name: Foto NAS ${{ github.run_number }}
+          files: FotoNAS.apk
